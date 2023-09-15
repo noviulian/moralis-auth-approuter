@@ -1,37 +1,25 @@
 "use client";
 
-import { ethers } from "ethers";
-import { hexlify } from "ethers/lib/utils";
 import { signIn, signOut, useSession } from "next-auth/react";
+
+import { useAccount, useConnect, useSignMessage, useDisconnect } from "wagmi";
+import { MetaMaskConnector } from "wagmi/connectors/metaMask";
 
 export default function User() {
     const { data: session } = useSession();
-    const connectToMetamask = async (): Promise<{
-        signer: ethers.providers.JsonRpcSigner;
-        chain: string;
-        account: string;
-    }> => {
-        if (!window.ethereum) {
-            alert("Please install MetaMask first.");
-            throw new Error("MetaMask not installed");
-        }
-        const provider = new ethers.providers.Web3Provider(
-            window.ethereum,
-            "any"
-        );
-
-        const [accounts, chainId] = await Promise.all([
-            provider.send("eth_requestAccounts", []),
-            provider.send("eth_chainId", []),
-        ]);
-
-        const signer = provider.getSigner();
-        return { signer, chain: chainId, account: accounts[0] };
-    };
+    const { connectAsync } = useConnect();
+    const { disconnectAsync } = useDisconnect();
+    const { isConnected } = useAccount();
+    const { signMessageAsync } = useSignMessage();
 
     async function authenticate() {
-        const { signer, chain, account } = await connectToMetamask();
+        if (isConnected) {
+            await disconnectAsync();
+        }
 
+        const { account, chain } = await connectAsync({
+            connector: new MetaMaskConnector(),
+        });
         if (!account) {
             throw new Error("No account found");
         }
@@ -39,10 +27,8 @@ export default function User() {
             throw new Error("No chain found");
         }
 
-        const userData = {
-            address: account,
-            chain: chain,
-        };
+        const userData = { address: account, chain: chain.id };
+
         const message = await fetch("/api/message", {
             method: "POST",
             body: JSON.stringify(userData),
@@ -50,7 +36,7 @@ export default function User() {
 
         console.log("message", message);
 
-        const signature = await signer.signMessage(message);
+        const signature = await signMessageAsync({ message });
 
         const data = await signIn("credentials", {
             message,
@@ -67,11 +53,11 @@ export default function User() {
                 <>
                     <h4>User session:</h4>
                     <pre>{JSON.stringify(session, null, 4)}</pre>
-                    <button onClick={() => signOut()}>signout</button>
+                    <button onClick={() => signOut()}>Log out</button>
                 </>
             ) : (
                 <button onClick={authenticate}>
-                    authenticate with metamask
+                    Authenticate with Metamask 🦊
                 </button>
             )}
         </>

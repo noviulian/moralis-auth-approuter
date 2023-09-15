@@ -3,7 +3,9 @@ import { SessionProvider } from "next-auth/react";
 import { Inter } from "next/font/google";
 import { authOptions } from "./api/auth/[...nextauth]/route";
 import { getServerSession } from "next-auth";
-import Provider from "./auth-context";
+import Provider from "../context/auth-context";
+import { WagmiConfig } from "wagmi";
+import { wagmiConfig } from "@/context/wagmi";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -21,7 +23,9 @@ export default async function RootLayout({
     return (
         <html lang="en">
             <body className={inter.className}>
-                <Provider session={session}>{children}</Provider>
+                <WagmiConfig config={wagmiConfig}>
+                    <Provider session={session}>{children}</Provider>
+                </WagmiConfig>
             </body>
         </html>
     );
